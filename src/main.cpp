@@ -30,7 +30,9 @@ void ReadSensors( void *pvParameters );
 WebServer server(80);
 
 void handle_capture() {
+  digitalWrite(FLASH_BUILTIN, HIGH);
   auto img = esp32cam::capture();
+  digitalWrite(FLASH_BUILTIN, LOW);
   if (img == nullptr) {
     server.send(500, "", "");
     return;
@@ -163,8 +165,6 @@ void ReadSensors(void *pvParameters) // This is a task.
     Serial.printf("Temperature = %.0f °C\n", bmp.readTemperature());
     Serial.printf("Pressure = %.2f hPa\n", bmp.readPressure()/100);
     Serial.printf("Approx altitude = %.2f m\n\n", bmp.readAltitude(1021)); /* Adjusted to local forecast! */
-
-    Serial.println();
     vTaskDelay(1000 / portTICK_PERIOD_MS); // 1000ms delay
   }
 }
