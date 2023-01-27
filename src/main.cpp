@@ -31,6 +31,7 @@ WebServer server(80);
 
 void handle_capture() {
   digitalWrite(FLASH_BUILTIN, HIGH);
+  vTaskDelay(100 / portTICK_PERIOD_MS);
   auto img = esp32cam::capture();
   digitalWrite(FLASH_BUILTIN, LOW);
   if (img == nullptr) {
@@ -132,6 +133,8 @@ void loop() {
 void ServerHandler(void *pvParameters)
 {
   (void) pvParameters;
+
+  pinMode(FLASH_BUILTIN, OUTPUT);
 
   for (;;)
   {
