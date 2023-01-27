@@ -19,6 +19,7 @@ TwoWire I2CSensors = TwoWire(0);
 Adafruit_BMP280 bmp(&I2CSensors);
 
 // define two tasks for Blink & AnalogRead
+void ServerHandler( void *pvParameters );
 void TaskBlink( void *pvParameters );
 void ReadSensors( void *pvParameters );
 
@@ -108,15 +109,33 @@ void setup() {
     , 1
     , NULL
     , ARDUINO_RUNNING_CORE);
+
+  xTaskCreatePinnedToCore(
+    ServerHandler
+    , "ServerHandler"
+    , 8192
+    , NULL
+    , 1
+    , NULL
+    , ARDUINO_RUNNING_CORE);
 }
 
 void loop() {
-  server.handleClient();
 }
 
 /*--------------------------------------------------*/
 /*---------------------- Tasks ---------------------*/
 /*--------------------------------------------------*/
+
+void ServerHandler(void *pvParameters)
+{
+  (void) pvParameters;
+
+  for (;;)
+  {
+    server.handleClient();
+  }
+}
 
 void TaskBlink(void *pvParameters)
 {
