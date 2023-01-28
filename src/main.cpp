@@ -7,6 +7,11 @@
 #include <Adafruit_BMP280.h>
 #include <Adafruit_MPU6050.h>
 
+#include <ESP32Servo.h>
+
+
+#define MAIN_CORE ARDUINO_RUNNING_CORE
+#define SECONDARY_CORE (1-ARDUINO_RUNNING_CORE)
 
 #define LED_BUILTIN 33
 #define FLASH_BUILTIN 4
@@ -14,22 +19,35 @@
 #define I2C_SDA 14
 #define I2C_SCL 15
 
+// Possible PWM GPIO pins on the ESP32: 0(used by on-board button),2,4,5(used by on-board LED),12-19,21-23,25-27,32-33
+#define AIRLON_PWM_PIN 12
+// Possible ADC pins on the ESP32: 0,2,4,12-15,32-39; 34-39 are recommended for analog input
+#define AIRLON_TEST_INPUT_PIN 34
+#define ADC_MAX 4096    // This is the default ADC max value on the ESP32 (12 bit ADC width);
+                        // this width can be set (in low-level oode) from 9-12 bits, for a
+                        // a range of max values of 512-4096
+
+#define AP_SSID "Altair"
+#define AP_PASS "PtS4LzLxjpepE4w67N"
+
+
 TwoWire I2CWire = TwoWire(0);
 
 // BMP280 (Using I2C)
 Adafruit_BMP280 bmp(&I2CWire);
 Adafruit_MPU6050 mpu;
 
+WebServer server(80);
+
+Servo airlons;
+
+
 // define two tasks for Blink & AnalogRead
 void ServerHandler( void *pvParameters );
 void TaskBlink( void *pvParameters );
 void ReadSensors( void *pvParameters );
+void AirlonController( void *pvParameters );
 
-
-#define AP_SSID "Altair"
-#define AP_PASS "PtS4LzLxjpepE4w67N"
-
-WebServer server(80);
 
 void handle_capture() {
   digitalWrite(FLASH_BUILTIN, HIGH);
@@ -168,6 +186,13 @@ void setup() {
   server.on("/capture.jpg", handle_capture);
   server.begin();
 
+  ESP32PWM::allocateTimer(0);
+	ESP32PWM::allocateTimer(1);
+	ESP32PWM::allocateTimer(2);
+	ESP32PWM::allocateTimer(3);
+  airlons.setPeriodHertz(50);      // Standard 50hz servo
+  airlons.attach(AIRLON_PWM_PIN, 800, 2500); // attaches the servo on pin 18 to the servo object
+
   xTaskCreatePinnedToCore(
     TaskBlink
     , "TaskBlink"
@@ -175,7 +200,7 @@ void setup() {
     , NULL
     , 2
     , NULL
-    , ARDUINO_RUNNING_CORE);
+    , MAIN_CORE);
 
   xTaskCreatePinnedToCore(
     ReadSensors
@@ -184,7 +209,7 @@ void setup() {
     , NULL
     , 1
     , NULL
-    , ARDUINO_RUNNING_CORE);
+    , MAIN_CORE);
 
   xTaskCreatePinnedToCore(
     ServerHandler
@@ -193,10 +218,20 @@ void setup() {
     , NULL
     , 1
     , NULL
-    , ARDUINO_RUNNING_CORE);
+    , MAIN_CORE);
+
+  xTaskCreatePinnedToCore(
+    AirlonController
+    , "AirlonController"
+    , 4096
+    , NULL
+    , 1
+    , NULL
+    , SECONDARY_CORE);
 }
 
 void loop() {
+
 }
 
 /*--------------------------------------------------*/
@@ -250,5 +285,25 @@ void ReadSensors(void *pvParameters) // This is a task.
     Serial.printf("Pressure = %.2f hPa\n", bmp.readPressure()/100);
     Serial.printf("Approx altitude = %.2f m\n\n", bmp.readAltitude(1021)); /* Adjusted to local forecast! */
     vTaskDelay(1000 / portTICK_PERIOD_MS); // 1000ms delay
+  }
+}
+
+void AirlonController( void *pvParameters )
+{
+  (void) pvParameters;
+
+  for (;;)
+  {
+    int pos = 0;
+    for (pos = 0; pos <= 180; pos += 1) {  // sweep from 0 degrees to 180 degrees
+      // in steps of 1 degree
+      airlons.write(pos);
+      vTaskDelay(15 / portTICK_PERIOD_MS); // waits 20ms for the servo to reach the position
+    }
+    for (pos = 180; pos >= 0; pos -= 1) {  // sweep from 180 degrees to 0 degrees
+      airlons.write(pos);
+      vTaskDelay(15 / portTICK_PERIOD_MS);
+    }
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
