@@ -190,8 +190,8 @@ void setup() {
 	ESP32PWM::allocateTimer(1);
 	ESP32PWM::allocateTimer(2);
 	ESP32PWM::allocateTimer(3);
-  airlons.setPeriodHertz(50);      // Standard 50hz servo
-  airlons.attach(AIRLON_PWM_PIN, 800, 2500); // attaches the servo on pin 18 to the servo object
+  airlons.setPeriodHertz(50);                // Standard 50hz servo
+  airlons.attach(AIRLON_PWM_PIN, 750, 3000); // attaches the servo on pin (definded) to the servo object for 180 degrees rotation
 
   xTaskCreatePinnedToCore(
     TaskBlink
@@ -292,18 +292,32 @@ void AirlonController( void *pvParameters )
 {
   (void) pvParameters;
 
+  // go to balanced angle, used for calibration
+  airlons.write(90);
+  vTaskDelay(6000 / portTICK_PERIOD_MS); // during this time, the fin should be set level
+
   for (;;)
   {
     int pos = 0;
-    for (pos = 0; pos <= 180; pos += 1) {  // sweep from 0 degrees to 180 degrees
+    for (pos = 90; pos >= 45; pos -= 1) {  // sweep from 90 degrees to 45 degrees
+      airlons.write(pos);
+      vTaskDelay(15 / portTICK_PERIOD_MS);
+    }
+    for (pos = 45; pos <= 90; pos += 1) {  // sweep back from 45 degrees to 90 degrees
       // in steps of 1 degree
       airlons.write(pos);
       vTaskDelay(15 / portTICK_PERIOD_MS); // waits 20ms for the servo to reach the position
     }
-    for (pos = 180; pos >= 0; pos -= 1) {  // sweep from 180 degrees to 0 degrees
+    vTaskDelay(3000 / portTICK_PERIOD_MS); // wait for calibration if needed
+    for (pos = 90; pos <= 135; pos += 1) {  // sweep from 90 degrees to 135 degrees
+      // in steps of 1 degree
+      airlons.write(pos);
+      vTaskDelay(15 / portTICK_PERIOD_MS); // waits 20ms for the servo to reach the position
+    }
+    for (pos = 135; pos >= 90; pos -= 1) {  // sweep back from 135 degrees to 90 degrees
       airlons.write(pos);
       vTaskDelay(15 / portTICK_PERIOD_MS);
     }
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(3000 / portTICK_PERIOD_MS); // wait for calibration if needed
   }
 }
