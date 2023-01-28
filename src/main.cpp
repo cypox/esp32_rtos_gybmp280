@@ -53,8 +53,7 @@ void setup() {
   I2CWire.begin(I2C_SDA, I2C_SCL, 100000);
 
   // Try to initialize!
-  mpu.begin(MPU6050_I2CADDR_DEFAULT, &I2CWire);
-  if (!mpu.begin()) {
+  if (!mpu.begin(MPU6050_I2CADDR_DEFAULT, &I2CWire)) {
     Serial.println("Failed to find MPU6050 chip");
     while (1) {
       delay(10);
@@ -242,27 +241,11 @@ void ReadSensors(void *pvParameters) // This is a task.
     mpu.getEvent(&a, &g, &temp);
 
     /* Print out the values */
-    Serial.print("Acceleration X: ");
-    Serial.print(a.acceleration.x);
-    Serial.print(", Y: ");
-    Serial.print(a.acceleration.y);
-    Serial.print(", Z: ");
-    Serial.print(a.acceleration.z);
-    Serial.println(" m/s^2");
+    Serial.printf("Acceleration X: %.2f, Y: %.2f, Z: %.2f m/s^2\n", a.acceleration.x, a.acceleration.y, a.acceleration.z);
+    Serial.printf("Rotation X: %.2f, Y: %.2f, Z: %.2f rad/s\n", g.gyro.x, g.gyro.y, g.gyro.z);
+    Serial.printf("Temperature = %.1f °C\n\n", temp.temperature);
 
-    Serial.print("Rotation X: ");
-    Serial.print(g.gyro.x);
-    Serial.print(", Y: ");
-    Serial.print(g.gyro.y);
-    Serial.print(", Z: ");
-    Serial.print(g.gyro.z);
-    Serial.println(" rad/s");
-
-    Serial.print("Temperature: ");
-    Serial.print(temp.temperature);
-    Serial.println(" degC");
-
-    Serial.printf("Temperature = %.0f °C\n", bmp.readTemperature());
+    Serial.printf("Temperature = %.1f °C\n", bmp.readTemperature());
     Serial.printf("Pressure = %.2f hPa\n", bmp.readPressure()/100);
     Serial.printf("Approx altitude = %.2f m\n\n", bmp.readAltitude(1021)); /* Adjusted to local forecast! */
     vTaskDelay(1000 / portTICK_PERIOD_MS); // 1000ms delay
